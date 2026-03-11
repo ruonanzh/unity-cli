@@ -1,127 +1,293 @@
 # unity-cli
 
-Command-line tool to control Unity Editor from AI coding assistants (Claude Code, Cursor, etc.)
+Command-line tool to control Unity Editor directly from the terminal. Built for AI coding assistants (Claude Code, Cursor, etc.) but works with anything that can run shell commands.
 
-**No MCP protocol. No Python relay. Just a CLI.**
+**No MCP protocol. No Python relay. No runtime dependencies. Just a single binary.**
 
 ## Install
 
+### Linux / macOS
+
 ```bash
-go install github.com/fedtop/unity-cli@latest
+curl -fsSL https://raw.githubusercontent.com/youngwoocho02/unity-cli/master/install.sh | sh
 ```
 
-Or download a binary from [Releases](https://github.com/fedtop/unity-cli/releases).
+### Windows (PowerShell)
+
+```powershell
+Invoke-WebRequest -Uri "https://github.com/youngwoocho02/unity-cli/releases/latest/download/unity-cli-windows-amd64.exe" -OutFile "$env:LOCALAPPDATA\unity-cli.exe"
+# Add to PATH (once):
+[Environment]::SetEnvironmentVariable("Path", "$env:Path;$env:LOCALAPPDATA", "User")
+```
+
+### Other options
+
+```bash
+# Go install (any platform with Go)
+go install github.com/youngwoocho02/unity-cli@latest
+
+# Manual download (pick your platform)
+# Linux amd64 / Linux arm64 / macOS amd64 / macOS arm64 / Windows amd64
+curl -fsSL https://github.com/youngwoocho02/unity-cli/releases/latest/download/unity-cli-linux-amd64 -o unity-cli
+chmod +x unity-cli && sudo mv unity-cli /usr/local/bin/
+```
+
+Supported platforms: Linux (amd64, arm64), macOS (Intel, Apple Silicon), Windows (amd64).
 
 ## Unity Setup
 
-Add the Connector package to your Unity project:
+Add the Unity Connector package via **Package Manager → Add package from git URL**:
 
 ```
-// Packages/manifest.json
-"com.fedtop.unity-cli-connector": "https://github.com/fedtop/unity-cli.git?path=unity-connector"
+https://github.com/youngwoocho02/unity-cli.git?path=unity-connector
 ```
 
-The Connector auto-starts an HTTP server when Unity opens. The CLI discovers it automatically.
-
-## Usage
-
-```bash
-# Editor control
-unity-cli editor play --wait
-unity-cli editor stop
-unity-cli editor refresh --compile
-
-# ECS queries
-unity-cli query entities --world server --component Health
-unity-cli query inspect --world server --index 42
-unity-cli query singleton --world server --component GamePhaseState
-
-# Game flow
-unity-cli game connect
-unity-cli game load --index 0
-unity-cli game phase Playing
-unity-cli game spawn-bots 10
-
-# Execute C# in Unity
-unity-cli exec "Debug.Log(Time.time)"
-
-# Console logs
-unity-cli console --lines 50
-
-# Custom tools
-unity-cli tool list
-unity-cli tool call my_custom_tool --params '{"key":"value"}'
+Or add directly to `Packages/manifest.json`:
+```json
+"com.youngwoocho02.unity-cli-connector": "https://github.com/youngwoocho02/unity-cli.git?path=unity-connector"
 ```
+
+Once added, the Connector starts automatically when Unity opens. No configuration needed.
 
 ## How It Works
 
 ```
-unity-cli ──HTTP POST──→ Unity Editor (localhost:8090)
-                          ├── CommandRouter
-                          ├── ToolDiscovery
-                          └── [UnityCliTool] handlers
+Terminal                              Unity Editor
+────────                              ────────────
+$ unity-cli editor play --wait
+    │
+    ├─ reads ~/.unity-cli/instances.json
+    │  → finds Unity on port 8090
+    │
+    ├─ POST http://127.0.0.1:8090/command
+    │  { "command": "manage_editor",
+    │    "params": { "action": "play",
+    │                "wait_for_completion": true }}
+    │                                      │
+    │                                  HttpServer receives
+    │                                      │
+    │                                  CommandRouter dispatches
+    │                                      │
+    │                                  ManageEditor.HandleCommand()
+    │                                  → EditorApplication.isPlaying = true
+    │                                  → waits for PlayModeStateChange
+    │                                      │
+    ├─ receives JSON response  ←───────────┘
+    │  { "success": true,
+    │    "message": "Entered play mode (confirmed)." }
+    │
+    └─ prints: Entered play mode (confirmed).
 ```
 
-1. Unity Connector opens HTTP server on `localhost:8090`
-2. Registers itself in `~/.unity-cli/instances.json`
-3. CLI reads instance file, sends `POST /command` with JSON
-4. Connector dispatches to the matching tool handler
-5. CLI prints result to stdout
+The Unity Connector:
+1. Opens an HTTP server on `localhost:8090` when the Editor starts
+2. Registers itself in `~/.unity-cli/instances.json` so the CLI knows where to connect
+3. Discovers all `[UnityCliTool]` classes via reflection
+4. Routes incoming commands to the matching handler on the main thread
+5. Survives domain reloads (script recompilation)
+
+## Built-in Commands
+
+### Editor Control
+
+```bash
+# Enter play mode
+unity-cli editor play
+
+# Enter play mode and wait until fully loaded
+unity-cli editor play --wait
+
+# Stop play mode
+unity-cli editor stop
+
+# Toggle pause (only works during play mode)
+unity-cli editor pause
+
+# Refresh assets
+unity-cli editor refresh
+
+# Refresh and request script compilation
+unity-cli editor refresh --compile
+```
+
+### Console Logs
+
+```bash
+# Read error and warning logs (default)
+unity-cli console
+
+# Read last 20 log entries of all types
+unity-cli console --lines 20 --filter all
+
+# Read only errors
+unity-cli console --filter error
+
+# Clear console
+# (use exec for this)
+unity-cli exec "typeof(UnityEditor.LogEntries).GetMethod(\"Clear\", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public).Invoke(null, null); return \"cleared\";"
+```
+
+### Execute C# Code
+
+Run arbitrary C# code inside the Unity Editor. Has full access to UnityEngine, UnityEditor, and all loaded assemblies.
+
+```bash
+# Simple expression (auto-returns result)
+unity-cli exec "Time.time"
+# → 42.1337
+
+# Get active scene name
+unity-cli exec "UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene().name"
+# → "MainScene"
+
+# Count objects
+unity-cli exec "GameObject.FindObjectsOfType<Camera>().Length"
+# → 3
+
+# Multi-statement (needs explicit return)
+unity-cli exec "var cameras = GameObject.FindObjectsOfType<Camera>(); return cameras.Length;"
+
+# With extra using directives
+unity-cli exec "World.All.Count" --usings Unity.Entities
+```
+
+### Menu Items
+
+```bash
+# Execute any Unity menu item by path
+unity-cli menu "File/Save Project"
+unity-cli menu "Assets/Refresh"
+unity-cli menu "Window/General/Console"
+```
+
+Note: `File/Quit` is blocked for safety.
+
+### Asset Reserialize
+
+Force YAML reserialize after direct text edits to asset files (.prefab, .unity, .asset, .mat).
+
+```bash
+# Single file
+unity-cli reserialize Assets/Scenes/Main.unity
+
+# Multiple files
+unity-cli reserialize Assets/Prefabs/Player.prefab Assets/Prefabs/Enemy.prefab
+```
+
+### Profiler
+
+```bash
+# Read profiler hierarchy (last frame)
+unity-cli profiler hierarchy
+
+# With depth limit
+unity-cli profiler hierarchy --depth 3
+```
+
+### Custom Tools
+
+```bash
+# List all registered tools (built-in + project custom)
+unity-cli tool list
+
+# Call a custom tool
+unity-cli tool call my_custom_tool --params '{"key": "value"}'
+
+# Get tool help
+unity-cli tool help my_custom_tool
+```
+
+## Global Options
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--port <N>` | Override Unity instance port (skip auto-discovery) | auto |
+| `--project <path>` | Select Unity instance by project path | latest |
+| `--json` | Output raw JSON response | off |
+| `--timeout <ms>` | HTTP request timeout | 120000 |
+
+```bash
+# Connect to a specific Unity instance
+unity-cli --port 8091 editor play
+
+# Select by project path when multiple Unity instances are open
+unity-cli --project MyGame editor stop
+
+# Get raw JSON output (useful for AI parsing)
+unity-cli --json console --lines 10
+```
 
 ## Writing Custom Tools
+
+Create a static class with `[UnityCliTool]` attribute in any Editor assembly. The Connector discovers it automatically on domain reload.
 
 ```csharp
 using UnityCliConnector;
 using Newtonsoft.Json.Linq;
 
-[UnityCliTool(Description = "Returns the current scene name")]
-public static class GetCurrentScene
+[UnityCliTool(Description = "Spawn an enemy at a position")]
+public static class SpawnEnemy
 {
-    // Command name: auto-derived as "get_current_scene"
-
-    public class Parameters
-    {
-        [ToolParameter("Include build index", Required = false)]
-        public bool IncludeBuildIndex { get; set; }
-    }
+    // Command name auto-derived: "spawn_enemy"
+    // Call with: unity-cli tool call spawn_enemy --params '{"x":1,"y":0,"z":5}'
 
     public static object HandleCommand(JObject parameters)
     {
-        var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-        return new SuccessResponse("Current scene", new
+        float x = parameters["x"]?.Value<float>() ?? 0;
+        float y = parameters["y"]?.Value<float>() ?? 0;
+        float z = parameters["z"]?.Value<float>() ?? 0;
+
+        var prefab = Resources.Load<GameObject>("Enemy");
+        var instance = Object.Instantiate(prefab, new Vector3(x, y, z), Quaternion.identity);
+
+        return new SuccessResponse("Enemy spawned", new
         {
-            name = scene.name,
-            path = scene.path,
+            name = instance.name,
+            position = new { x, y, z }
         });
     }
 }
 ```
 
-Call it:
+### Rules
+
+- Class must be `static`
+- Must have `public static object HandleCommand(JObject parameters)` or `async Task<object>` variant
+- Return `SuccessResponse(message, data)` or `ErrorResponse(message)`
+- Class name is auto-converted to snake_case for the command name
+- Override with `[UnityCliTool(Name = "my_name")]` if needed
+- Runs on Unity main thread, so all Unity APIs are safe to call
+- Discovered automatically on Editor start and after every script recompilation
+
+## Multiple Unity Instances
+
+When multiple Unity Editors are open, each registers on a different port (8090, 8091, ...):
+
 ```bash
-unity-cli tool call get_current_scene
+# See all running instances
+cat ~/.unity-cli/instances.json
+
+# Select by project path
+unity-cli --project MyGame editor play
+
+# Select by port
+unity-cli --port 8091 editor play
+
+# Default: uses the most recently registered instance
+unity-cli editor play
 ```
-
-## Options
-
-| Flag | Description |
-|------|-------------|
-| `--port <N>` | Override Unity instance port |
-| `--project <path>` | Select instance by project path |
-| `--json` | Raw JSON output |
-| `--timeout <ms>` | Request timeout (default: 120000) |
-| `--help` | Show help |
-| `--version` | Show version |
 
 ## Compared to MCP
 
 | | MCP | unity-cli |
 |---|-----|-----------|
-| **Install** | Python + uv + FastMCP + config JSON | `go install` or download binary |
-| **Dependencies** | Python runtime, WebSocket | None (single binary) |
-| **Protocol** | JSON-RPC 2.0 over stdio + WebSocket | HTTP POST |
-| **Setup** | Generate MCP config, restart AI tool | Just works |
+| **Install** | Python + uv + FastMCP + config JSON | Single binary |
+| **Dependencies** | Python runtime, WebSocket relay | None |
+| **Protocol** | JSON-RPC 2.0 over stdio + WebSocket | Direct HTTP POST |
+| **Setup** | Generate MCP config, restart AI tool | Add Unity package, done |
+| **Reconnection** | Complex reconnect logic for domain reloads | Stateless per request |
 | **Compatibility** | MCP-compatible clients only | Anything with a shell |
+| **Custom tools** | Same `[Attribute]` + `HandleCommand` pattern | Same |
 
 ## License
 

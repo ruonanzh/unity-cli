@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/fedtop/unity-cli/internal/client"
+	"github.com/youngwoocho02/unity-cli/internal/client"
 )
 
 func toolCmd(args []string, send sendFn) (*client.CommandResponse, error) {

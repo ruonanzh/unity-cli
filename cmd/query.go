@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/fedtop/unity-cli/internal/client"
+	"github.com/youngwoocho02/unity-cli/internal/client"
 )
 
 func queryCmd(args []string, send sendFn) (*client.CommandResponse, error) {

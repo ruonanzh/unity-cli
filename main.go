@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/fedtop/unity-cli/cmd"
+	"github.com/youngwoocho02/unity-cli/cmd"
 )
 
 func main() {
