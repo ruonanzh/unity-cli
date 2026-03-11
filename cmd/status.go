@@ -27,15 +27,11 @@ func statusCmd(inst *client.Instance) error {
 
 	age := time.Since(time.UnixMilli(status.Timestamp))
 	if age > 3*time.Second {
-		label := "offline"
-		if isBusyState(status.State) {
-			label = stateLabel(status.State)
-		}
-		fmt.Fprintf(os.Stderr, "Unity (port %d): %s (last heartbeat %s ago)\n", status.Port, label, age.Truncate(time.Second))
+		fmt.Fprintf(os.Stderr, "Unity (port %d): not responding (last heartbeat %s ago)\n", status.Port, age.Truncate(time.Second))
 		return nil
 	}
 
-	fmt.Printf("Unity (port %d): %s\n", status.Port, stateLabel(status.State))
+	fmt.Printf("Unity (port %d): %s\n", status.Port, status.State)
 	fmt.Printf("  Project: %s\n", status.ProjectPath)
 	fmt.Printf("  Version: %s\n", status.UnityVersion)
 	fmt.Printf("  PID:     %d\n", status.PID)
@@ -58,35 +54,16 @@ func readStatus(port int) (*UnityStatus, error) {
 	return &status, nil
 }
 
-func checkUnityReady(port int) string {
-	status, err := readStatus(port)
-	if err != nil {
-		return ""
-	}
-
-	age := time.Since(time.UnixMilli(status.Timestamp))
-	if age > 3*time.Second {
-		if isBusyState(status.State) {
-			return status.State
-		}
-		return "offline"
-	}
-
-	return status.State
-}
-
-func isBusyState(state string) bool {
-	switch state {
-	case "compiling", "refreshing", "reloading", "entering_playmode":
-		return true
-	}
-	return false
-}
-
-func waitUntilReady(port int, timeoutMs int) error {
+// waitForAlive reads the current timestamp, then polls until a newer one appears.
+func waitForAlive(port int, timeoutMs int) error {
 	baseline := time.Now().UnixMilli()
 	if status, err := readStatus(port); err == nil {
 		baseline = status.Timestamp
+	}
+
+	// Already fresh — check if timestamp was updated within the last second
+	if time.Now().UnixMilli()-baseline < 1000 {
+		return nil
 	}
 
 	fmt.Fprintf(os.Stderr, "Waiting for Unity...\n")
@@ -105,25 +82,4 @@ func waitUntilReady(port int, timeoutMs int) error {
 	}
 
 	return fmt.Errorf("timed out waiting for Unity (port %d)", port)
-}
-
-func stateLabel(state string) string {
-	switch state {
-	case "ready":
-		return "ready"
-	case "compiling":
-		return "compiling scripts..."
-	case "refreshing":
-		return "refreshing assets..."
-	case "playing":
-		return "play mode"
-	case "paused":
-		return "play mode (paused)"
-	case "reloading":
-		return "reloading assemblies..."
-	case "entering_playmode":
-		return "entering play mode..."
-	default:
-		return state
-	}
 }

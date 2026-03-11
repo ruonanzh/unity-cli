@@ -69,10 +69,8 @@ func Execute() error {
 		return err
 	}
 
-	if state := checkUnityReady(inst.Port); isBusyState(state) {
-		if err := waitUntilReady(inst.Port, flagTimeout); err != nil {
-			return err
-		}
+	if err := waitForAlive(inst.Port, flagTimeout); err != nil {
+		return err
 	}
 
 	send := func(command string, params interface{}) (*client.CommandResponse, error) {
@@ -83,7 +81,7 @@ func Execute() error {
 
 	switch category {
 	case "editor":
-		resp, err = editorCmd(subArgs, send, inst)
+		resp, err = editorCmd(subArgs, send, inst.Port)
 	case "console":
 		resp, err = consoleCmd(subArgs, send)
 	case "exec":
