@@ -2,7 +2,6 @@
 
 > Control Unity Editor from the command line. Built for AI agents, works with anything.
 
-[![YouTube](https://img.shields.io/badge/YouTube-DevBookOfArray-red?logo=youtube)](https://www.youtube.com/@DevBookOfArray)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **No MCP protocol. No Python relay. No runtime dependencies. Just a single binary.**
@@ -332,7 +331,10 @@ unity-cli editor play
 
 ## Author
 
-**DevBookOfArray** — [YouTube](https://www.youtube.com/@DevBookOfArray) · [GitHub](https://github.com/youngwoocho02)
+Created by **DevBookOfArray** (Youngwoo Cho)
+
+[![YouTube](https://img.shields.io/badge/YouTube-DevBookOfArray-red?logo=youtube&logoColor=white)](https://www.youtube.com/@DevBookOfArray)
+[![GitHub](https://img.shields.io/badge/GitHub-youngwoocho02-181717?logo=github)](https://github.com/youngwoocho02)
 
 ## License
 
