@@ -67,7 +67,17 @@ https://github.com/youngwoocho02/unity-cli.git?path=unity-connector
 "com.youngwoocho02.unity-cli-connector": "https://github.com/youngwoocho02/unity-cli.git?path=unity-connector"
 ```
 
+특정 버전을 고정하려면 URL 끝에 `#v0.1.0`을 추가하세요.
+
 추가 후 Unity를 열면 커넥터가 자동으로 시작됩니다. 별도 설정 불필요.
+
+### 권장: Editor 쓰로틀링 비활성화
+
+기본적으로 Unity는 창이 포커스를 잃으면 에디터 업데이트를 쓰로틀링합니다. 이 경우 Unity를 다시 클릭하기 전까지 CLI 명령이 실행되지 않을 수 있습니다.
+
+**Edit → Preferences → General → Interaction Mode**에서 **No Throttling**으로 설정하세요.
+
+이렇게 하면 Unity가 백그라운드에 있어도 CLI 명령이 즉시 처리됩니다.
 
 ## 동작 방식
 
@@ -141,6 +151,10 @@ unity-cli console --lines 20 --filter all
 
 # 에러만 읽기
 unity-cli console --filter error
+
+# 콘솔 지우기
+# (exec 사용)
+unity-cli exec "typeof(UnityEditor.LogEntries).GetMethod(\"Clear\", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public).Invoke(null, null); return \"cleared\";"
 ```
 
 ### C# 코드 실행

@@ -134,12 +134,6 @@ namespace UnityCliConnector
             }
         }
 
-        static void ForceEditorUpdate()
-        {
-            try { UnityEditorInternal.InternalEditorUtility.RepaintAllViews(); }
-            catch { }
-        }
-
         static async Task ListenLoop(CancellationToken ct)
         {
             while (ct.IsCancellationRequested == false && s_Listener?.IsListening == true)
@@ -200,7 +194,6 @@ namespace UnityCliConnector
                             Parameters = parameters,
                             Tcs = tcs,
                         });
-                        ForceEditorUpdate();
                         result = await tcs.Task;
                     }
                 }

@@ -71,6 +71,14 @@ To pin a specific version, append `#v0.1.0` to the URL.
 
 Once added, the Connector starts automatically when Unity opens. No configuration needed.
 
+### Recommended: Disable Editor Throttling
+
+By default, Unity throttles editor updates when the window is unfocused. This means CLI commands may not execute until you click back into Unity.
+
+To fix this, go to **Edit → Preferences → General → Interaction Mode** and set it to **No Throttling**.
+
+This ensures CLI commands are processed immediately, even when Unity is in the background.
+
 ## How It Works
 
 ```
