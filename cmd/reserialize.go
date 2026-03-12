@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/youngwoocho02/unity-cli/internal/client"
 )
 
