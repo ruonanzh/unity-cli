@@ -16,6 +16,7 @@ namespace UnityCliConnector
         static double s_LastWrite;
         const double INTERVAL = 0.5;
         static string s_ForcedState;
+        static double s_CompileRequestTime;
 
         static Heartbeat()
         {
@@ -44,6 +45,16 @@ namespace UnityCliConnector
             Write();
         }
 
+        /// <summary>
+        /// Marks that a compile was requested. Keeps "compiling" state forced
+        /// for a grace period so the CLI poller never sees a premature "ready".
+        /// </summary>
+        public static void MarkCompileRequested()
+        {
+            s_CompileRequestTime = EditorApplication.timeSinceStartup;
+            WriteState("compiling");
+        }
+
         static void Tick()
         {
             if (HttpServer.Port == 0) return;
@@ -51,6 +62,16 @@ namespace UnityCliConnector
             var now = EditorApplication.timeSinceStartup;
             if (now - s_LastWrite < INTERVAL) return;
             s_LastWrite = now;
+
+            if (s_CompileRequestTime > 0)
+            {
+                if (now - s_CompileRequestTime < 3.0 && EditorApplication.isCompiling == false)
+                {
+                    Write();
+                    return;
+                }
+                s_CompileRequestTime = 0;
+            }
 
             s_ForcedState = null;
             Write();

@@ -38,7 +38,7 @@ func editorCmd(args []string, send sendFn, port int) (*client.CommandResponse, e
 			if err != nil {
 				return nil, err
 			}
-			if waitErr := waitForAlive(port, flagTimeout); waitErr != nil {
+			if waitErr := waitForReady(port, flagTimeout); waitErr != nil {
 				return nil, waitErr
 			}
 			resp.Message = "Refresh and compilation completed."

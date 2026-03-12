@@ -83,3 +83,23 @@ func waitForAlive(port int, timeoutMs int) error {
 
 	return fmt.Errorf("timed out waiting for Unity (port %d)", port)
 }
+
+// waitForReady polls until the heartbeat state becomes "ready".
+func waitForReady(port int, timeoutMs int) error {
+	fmt.Fprintf(os.Stderr, "Waiting for compilation...\n")
+
+	deadline := time.Now().Add(time.Duration(timeoutMs) * time.Millisecond)
+	for time.Now().Before(deadline) {
+		time.Sleep(500 * time.Millisecond)
+		status, err := readStatus(port)
+		if err != nil {
+			continue
+		}
+		if status.State == "ready" {
+			fmt.Fprintf(os.Stderr, "Compilation complete.\n")
+			return nil
+		}
+	}
+
+	return fmt.Errorf("timed out waiting for compilation (port %d)", port)
+}
