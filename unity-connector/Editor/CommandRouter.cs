@@ -33,15 +33,6 @@ namespace UnityCliConnector
             if (command == "list_tools")
                 return new SuccessResponse("Available tools", ToolDiscovery.GetToolSchemas());
 
-            if (command == "tool_help")
-            {
-                var name = parameters?["name"]?.ToString();
-                if (name == null) return new ErrorResponse("Missing 'name' parameter");
-                var help = ToolDiscovery.GetToolHelp(name);
-                if (help == null) return new ErrorResponse($"Unknown tool: {name}");
-                return new SuccessResponse("Tool info", help);
-            }
-
             var handler = ToolDiscovery.FindHandler(command);
             if (handler == null)
                 return new ErrorResponse($"Unknown command: {command}");

@@ -476,7 +476,7 @@ Unity Setup:
   The Connector starts automatically when Unity opens.
 
 Verify:
-  unity-cli tool list
+  unity-cli list
 `)
 	default:
 		fmt.Printf("Unknown help topic: %s\n\nUse \"unity-cli --help\" for available commands.\n", topic)

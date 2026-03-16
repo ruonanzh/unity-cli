@@ -98,36 +98,6 @@ namespace UnityCliConnector
             return tools;
         }
 
-        public static object GetToolHelp(string command)
-        {
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                Type[] types;
-                try { types = assembly.GetTypes(); }
-                catch (ReflectionTypeLoadException) { continue; }
-
-                foreach (var type in types)
-                {
-                    if (type.IsClass == false) continue;
-                    var attr = type.GetCustomAttribute<UnityCliToolAttribute>();
-                    if (attr == null) continue;
-
-                    var name = attr.Name ?? StringCaseUtility.ToSnakeCase(type.Name);
-                    if (name != command) continue;
-
-                    return new
-                    {
-                        name,
-                        description = attr.Description ?? "",
-                        group = attr.Group ?? "",
-                        parameters = GetParameterSchema(type.GetNestedType("Parameters")),
-                    };
-                }
-            }
-
-            return null;
-        }
-
         public static List<object> GetParameterSchema(Type paramsType)
         {
             if (paramsType == null) return new List<object>();

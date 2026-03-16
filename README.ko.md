@@ -319,7 +319,7 @@ using Newtonsoft.Json.Linq;
 public static class SpawnEnemy
 {
     // 명령어 이름 자동 생성: "spawn_enemy"
-    // 호출: unity-cli tool call spawn_enemy --params '{"x":1,"y":0,"z":5}'
+    // 호출: unity-cli spawn_enemy --params '{"x":1,"y":0,"z":5}'
 
     public class Parameters
     {

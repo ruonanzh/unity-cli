@@ -319,7 +319,7 @@ using Newtonsoft.Json.Linq;
 public static class SpawnEnemy
 {
     // Command name auto-derived: "spawn_enemy"
-    // Call with: unity-cli tool call spawn_enemy --params '{"x":1,"y":0,"z":5}'
+    // Call with: unity-cli spawn_enemy --params '{"x":1,"y":0,"z":5}'
 
     public class Parameters
     {
