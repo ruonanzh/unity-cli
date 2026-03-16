@@ -71,7 +71,7 @@ Or add directly to `Packages/manifest.json`:
 "com.youngwoocho02.unity-cli-connector": "https://github.com/youngwoocho02/unity-cli.git?path=unity-connector"
 ```
 
-To pin a specific version, append a tag to the URL (e.g. `#v0.2.16`).
+To pin a specific version, append a tag to the URL (e.g. `#v0.2.21`).
 
 Once added, the Connector starts automatically when Unity opens. No configuration needed.
 
@@ -244,14 +244,26 @@ This is what makes text-based asset editing safe. Without it, a single misplaced
 ### Profiler
 
 ```bash
-# Read profiler hierarchy (last frame)
+# Read profiler hierarchy (last frame, top-level)
 unity-cli profiler hierarchy
 
-# Recursive drill-down with depth limit
+# Recursive drill-down
 unity-cli profiler hierarchy --depth 3
 
-# Filter by minimum time and sort by self time
-unity-cli profiler hierarchy --min 0.5 --sort self
+# Set root by name (substring match) — focus on a specific system
+unity-cli profiler hierarchy --root SimulationSystem --depth 3
+
+# Drill into a specific item by ID
+unity-cli profiler hierarchy --parent 4 --depth 2
+
+# Average over last 30 frames
+unity-cli profiler hierarchy --frames 30 --min 0.5
+
+# Average over a specific frame range
+unity-cli profiler hierarchy --from 100 --to 200
+
+# Filter and sort
+unity-cli profiler hierarchy --min 0.5 --sort self --max 10
 
 # Enable/disable profiler recording
 unity-cli profiler enable
@@ -259,6 +271,9 @@ unity-cli profiler disable
 
 # Show profiler state
 unity-cli profiler status
+
+# Clear captured frames
+unity-cli profiler clear
 ```
 
 ### Custom Tools

@@ -71,7 +71,7 @@ https://github.com/youngwoocho02/unity-cli.git?path=unity-connector
 "com.youngwoocho02.unity-cli-connector": "https://github.com/youngwoocho02/unity-cli.git?path=unity-connector"
 ```
 
-특정 버전을 고정하려면 URL 끝에 태그를 추가하세요 (예: `#v0.2.16`).
+특정 버전을 고정하려면 URL 끝에 태그를 추가하세요 (예: `#v0.2.21`).
 
 추가 후 Unity를 열면 커넥터가 자동으로 시작됩니다. 별도 설정 불필요.
 
@@ -244,14 +244,26 @@ unity-cli reserialize Assets/Materials/Character.mat
 ### 프로파일러
 
 ```bash
-# 프로파일러 하이어라키 읽기 (마지막 프레임)
+# 프로파일러 하이어라키 읽기 (마지막 프레임, 최상위)
 unity-cli profiler hierarchy
 
-# 재귀적 드릴다운 (깊이 제한)
+# 재귀적 드릴다운
 unity-cli profiler hierarchy --depth 3
 
-# 최소 시간 필터 + self time 기준 정렬
-unity-cli profiler hierarchy --min 0.5 --sort self
+# 이름으로 root 지정 (substring match) — 특정 시스템에 집중
+unity-cli profiler hierarchy --root SimulationSystem --depth 3
+
+# 특정 item ID로 드릴다운
+unity-cli profiler hierarchy --parent 4 --depth 2
+
+# 최근 30프레임 평균
+unity-cli profiler hierarchy --frames 30 --min 0.5
+
+# 특정 프레임 범위 평균
+unity-cli profiler hierarchy --from 100 --to 200
+
+# 필터 및 정렬
+unity-cli profiler hierarchy --min 0.5 --sort self --max 10
 
 # 프로파일러 녹화 켜기/끄기
 unity-cli profiler enable
@@ -259,6 +271,9 @@ unity-cli profiler disable
 
 # 프로파일러 상태 확인
 unity-cli profiler status
+
+# 캡쳐된 프레임 초기화
+unity-cli profiler clear
 ```
 
 ### 커스텀 도구
