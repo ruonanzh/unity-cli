@@ -200,11 +200,11 @@ unity-cli console --clear
 
 가장 강력한 명령어입니다. Unity Editor 런타임에서 임의의 C# 코드를 실행합니다. UnityEngine, UnityEditor, ECS 및 로드된 모든 어셈블리에 접근 가능합니다. 일회성 조회나 수정을 위해 커스텀 도구를 만들 필요가 없습니다.
 
-`return`으로 결과를 받습니다. 기본 namespace(`System`, `System.Collections.Generic`, `System.Linq`, `System.Reflection`, `UnityEngine`, `UnityEditor`) 외의 타입은 `--usings`로 추가합니다.
+`return`으로 결과를 받습니다. 주요 namespace는 기본 포함. 프로젝트 전용 타입(예: `Unity.Entities`)만 `--usings`로 추가합니다.
 
 ```bash
 unity-cli exec "return Application.dataPath;"
-unity-cli exec "return EditorSceneManager.GetActiveScene().name;" --usings UnityEditor.SceneManagement
+unity-cli exec "return EditorSceneManager.GetActiveScene().name;"
 unity-cli exec "return World.All.Count;" --usings Unity.Entities
 unity-cli exec "Debug.Log(\"hello\"); return null;"
 unity-cli exec "var go = new GameObject(\"Marker\"); go.tag = \"EditorOnly\"; return go.name;"

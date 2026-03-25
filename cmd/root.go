@@ -389,13 +389,15 @@ Use 'return' to get output. Add --usings for types outside default namespaces.
 Options:
   --usings <ns1,ns2>   Add extra using directives
 
-Default usings: System, System.Collections.Generic, System.Linq,
-                System.Reflection, UnityEngine, UnityEditor
+Default usings: System, System.Collections.Generic, System.IO, System.Linq,
+  System.Reflection, System.Threading.Tasks, UnityEngine,
+  UnityEngine.SceneManagement, UnityEditor, UnityEditor.SceneManagement,
+  UnityEditorInternal
 
 Examples:
   unity-cli exec "return 1+1;"
   unity-cli exec "return Application.dataPath;"
-  unity-cli exec "return EditorSceneManager.GetActiveScene().name;" --usings UnityEditor.SceneManagement
+  unity-cli exec "return EditorSceneManager.GetActiveScene().name;"
   unity-cli exec "Debug.Log(\"hello\"); return null;"
   unity-cli exec "return World.All.Count;" --usings Unity.Entities
 

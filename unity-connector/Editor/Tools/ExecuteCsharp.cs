@@ -19,10 +19,15 @@ namespace UnityCliConnector.Tools
         {
             "System",
             "System.Collections.Generic",
+            "System.IO",
             "System.Linq",
             "System.Reflection",
+            "System.Threading.Tasks",
             "UnityEngine",
+            "UnityEngine.SceneManagement",
             "UnityEditor",
+            "UnityEditor.SceneManagement",
+            "UnityEditorInternal",
         };
 
         public class Parameters
