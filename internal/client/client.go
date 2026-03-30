@@ -37,9 +37,11 @@ type CommandResponse struct {
 	Data    json.RawMessage `json:"data,omitempty"`
 }
 
-// isProcessRunning checks whether a process with the given PID exists.
+// isProcessDead returns true only when the process is confirmed to not exist.
+// Permission errors or transient failures return false (not confirmed dead),
+// so the instance file is preserved.
 // Defaults to the OS-specific implementation; overridden in tests.
-var isProcessRunning = checkProcessRunning
+var isProcessDead = checkProcessDead
 
 func instancesDir() string {
 	home, _ := os.UserHomeDir()
@@ -69,7 +71,7 @@ func ScanInstances() ([]Instance, error) {
 		if err := json.Unmarshal(data, &inst); err != nil {
 			continue
 		}
-		if inst.PID > 0 && !isProcessRunning(inst.PID) {
+		if inst.PID > 0 && isProcessDead(inst.PID) {
 			os.Remove(fp)
 			continue
 		}
@@ -78,10 +80,31 @@ func ScanInstances() ([]Instance, error) {
 	return instances, nil
 }
 
-// FindByPort scans instance files and returns the best active instance matching the given port.
-// Stopped instances are skipped. If multiple active instances share the same port,
-// the one with the most recent timestamp wins.
+// FindByPort scans instance files and returns the instance matching the given port.
+// If multiple instances share the same port, the one with the most recent timestamp wins.
 func FindByPort(port int) (*Instance, error) {
+	instances, err := ScanInstances()
+	if err != nil {
+		return nil, err
+	}
+	var best *Instance
+	for i, inst := range instances {
+		if inst.Port != port {
+			continue
+		}
+		if best == nil || inst.Timestamp > best.Timestamp {
+			best = &instances[i]
+		}
+	}
+	if best == nil {
+		return nil, fmt.Errorf("no instance on port %d", port)
+	}
+	return best, nil
+}
+
+// FindActiveByPort is like FindByPort but skips stopped instances.
+// Used by polling paths (waitForAlive, waitForReady) that only care about live instances.
+func FindActiveByPort(port int) (*Instance, error) {
 	instances, err := ScanInstances()
 	if err != nil {
 		return nil, err

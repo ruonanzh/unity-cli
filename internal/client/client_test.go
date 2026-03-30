@@ -7,13 +7,15 @@ import (
 	"testing"
 )
 
-func stubIsProcessRunning(t *testing.T, alivePIDs map[int]bool) {
+// stubIsProcessDead replaces isProcessDead for testing.
+// deadPIDs maps PID → true if the process is confirmed dead.
+func stubIsProcessDead(t *testing.T, deadPIDs map[int]bool) {
 	t.Helper()
-	orig := isProcessRunning
-	isProcessRunning = func(pid int) bool {
-		return alivePIDs[pid]
+	orig := isProcessDead
+	isProcessDead = func(pid int) bool {
+		return deadPIDs[pid]
 	}
-	t.Cleanup(func() { isProcessRunning = orig })
+	t.Cleanup(func() { isProcessDead = orig })
 }
 
 func writeInstanceFiles(t *testing.T, files map[string]Instance) string {
@@ -35,14 +37,113 @@ func writeInstanceFiles(t *testing.T, files map[string]Instance) string {
 	return home
 }
 
-// TestFindByPort_SkipsStoppedPicksLatest verifies the core bug fix:
+// --- FindActiveByPort tests ---
+
+// TestFindActiveByPort_SkipsStoppedPicksLatest verifies the core bug fix:
 // when a stopped instance and a ready instance share the same port,
-// FindByPort must return the ready instance with the latest timestamp.
-func TestFindByPort_SkipsStoppedPicksLatest(t *testing.T) {
-	stubIsProcessRunning(t, map[int]bool{100: true, 200: true})
+// FindActiveByPort must return the ready instance with the latest timestamp.
+func TestFindActiveByPort_SkipsStoppedPicksLatest(t *testing.T) {
+	stubIsProcessDead(t, map[int]bool{})
 
 	home := writeInstanceFiles(t, map[string]Instance{
 		// Alphabetically first — the old bug would pick this one
+		"aaa_stopped.json": {
+			State:       "stopped",
+			ProjectPath: "/projects/old",
+			Port:        8090,
+			PID:         100,
+			Timestamp:   1000,
+		},
+		"bbb_ready.json": {
+			State:       "ready",
+			ProjectPath: "/projects/current",
+			Port:        8090,
+			PID:         200,
+			Timestamp:   2000,
+		},
+	})
+	t.Setenv("HOME", home)
+
+	got, err := FindActiveByPort(8090)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.State != "ready" {
+		t.Errorf("State: got %q, want %q", got.State, "ready")
+	}
+	if got.ProjectPath != "/projects/current" {
+		t.Errorf("ProjectPath: got %q, want %q", got.ProjectPath, "/projects/current")
+	}
+	if got.Timestamp != 2000 {
+		t.Errorf("Timestamp: got %d, want %d", got.Timestamp, 2000)
+	}
+}
+
+// TestFindActiveByPort_PicksLatestTimestamp verifies that among multiple active
+// instances on the same port, the one with the newest timestamp wins.
+func TestFindActiveByPort_PicksLatestTimestamp(t *testing.T) {
+	stubIsProcessDead(t, map[int]bool{})
+
+	home := writeInstanceFiles(t, map[string]Instance{
+		"aaa_old.json": {
+			State:       "ready",
+			ProjectPath: "/projects/old",
+			Port:        8090,
+			PID:         100,
+			Timestamp:   1000,
+		},
+		"bbb_new.json": {
+			State:       "ready",
+			ProjectPath: "/projects/new",
+			Port:        8090,
+			PID:         200,
+			Timestamp:   2000,
+		},
+	})
+	t.Setenv("HOME", home)
+
+	got, err := FindActiveByPort(8090)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Timestamp != 2000 {
+		t.Errorf("Timestamp: got %d, want %d", got.Timestamp, 2000)
+	}
+}
+
+// --- FindByPort tests (exact lookup, includes stopped) ---
+
+// TestFindByPort_ReturnsStoppedInstance verifies that FindByPort returns
+// stopped instances, so `unity-cli status` can display them.
+func TestFindByPort_ReturnsStoppedInstance(t *testing.T) {
+	stubIsProcessDead(t, map[int]bool{})
+
+	home := writeInstanceFiles(t, map[string]Instance{
+		"stopped.json": {
+			State:       "stopped",
+			ProjectPath: "/projects/old",
+			Port:        8090,
+			PID:         100,
+			Timestamp:   1000,
+		},
+	})
+	t.Setenv("HOME", home)
+
+	got, err := FindByPort(8090)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.State != "stopped" {
+		t.Errorf("State: got %q, want %q", got.State, "stopped")
+	}
+}
+
+// TestFindByPort_PicksLatestWhenMixed verifies that FindByPort picks
+// the latest timestamp even among mixed states.
+func TestFindByPort_PicksLatestWhenMixed(t *testing.T) {
+	stubIsProcessDead(t, map[int]bool{})
+
+	home := writeInstanceFiles(t, map[string]Instance{
 		"aaa_stopped.json": {
 			State:       "stopped",
 			ProjectPath: "/projects/old",
@@ -64,55 +165,20 @@ func TestFindByPort_SkipsStoppedPicksLatest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got.State != "ready" {
-		t.Errorf("State: got %q, want %q", got.State, "ready")
-	}
-	if got.ProjectPath != "/projects/current" {
-		t.Errorf("ProjectPath: got %q, want %q", got.ProjectPath, "/projects/current")
-	}
+	// Latest timestamp wins regardless of state
 	if got.Timestamp != 2000 {
 		t.Errorf("Timestamp: got %d, want %d", got.Timestamp, 2000)
 	}
 }
 
-// TestFindByPort_PicksLatestTimestamp verifies that among multiple active
-// instances on the same port, the one with the newest timestamp wins.
-func TestFindByPort_PicksLatestTimestamp(t *testing.T) {
-	stubIsProcessRunning(t, map[int]bool{100: true, 200: true})
-
-	home := writeInstanceFiles(t, map[string]Instance{
-		"aaa_old.json": {
-			State:       "ready",
-			ProjectPath: "/projects/old",
-			Port:        8090,
-			PID:         100,
-			Timestamp:   1000,
-		},
-		"bbb_new.json": {
-			State:       "ready",
-			ProjectPath: "/projects/new",
-			Port:        8090,
-			PID:         200,
-			Timestamp:   2000,
-		},
-	})
-	t.Setenv("HOME", home)
-
-	got, err := FindByPort(8090)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got.Timestamp != 2000 {
-		t.Errorf("Timestamp: got %d, want %d", got.Timestamp, 2000)
-	}
-}
+// --- ScanInstances tests ---
 
 // TestScanInstances_RemovesDeadPID verifies that instance files with
-// a non-running PID are removed from disk and excluded from results.
+// a confirmed-dead PID are removed from disk and excluded from results.
 func TestScanInstances_RemovesDeadPID(t *testing.T) {
-	stubIsProcessRunning(t, map[int]bool{
-		100: false, // dead
-		200: true,  // alive
+	stubIsProcessDead(t, map[int]bool{
+		100: true,  // confirmed dead
+		200: false, // alive
 	})
 
 	home := writeInstanceFiles(t, map[string]Instance{
@@ -152,10 +218,42 @@ func TestScanInstances_RemovesDeadPID(t *testing.T) {
 	}
 }
 
+// TestScanInstances_KeepsOnPermissionError verifies that when isProcessDead
+// returns false (e.g. permission error), the instance file is preserved.
+func TestScanInstances_KeepsOnPermissionError(t *testing.T) {
+	// isProcessDead returns false for PID 100 — simulates EPERM / ACCESS_DENIED
+	stubIsProcessDead(t, map[int]bool{100: false})
+
+	home := writeInstanceFiles(t, map[string]Instance{
+		"eperm.json": {
+			State:       "ready",
+			ProjectPath: "/projects/eperm",
+			Port:        8090,
+			PID:         100,
+			Timestamp:   1000,
+		},
+	})
+	t.Setenv("HOME", home)
+
+	instances, err := ScanInstances()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(instances) != 1 {
+		t.Fatalf("expected 1 instance, got %d", len(instances))
+	}
+
+	// Verify the file was NOT deleted
+	fp := filepath.Join(home, ".unity-cli", "instances", "eperm.json")
+	if _, err := os.Stat(fp); err != nil {
+		t.Error("eperm.json should have been preserved")
+	}
+}
+
 // TestScanInstances_KeepsZeroPID verifies that instances with PID 0
 // (e.g. legacy files) are kept without process checking.
 func TestScanInstances_KeepsZeroPID(t *testing.T) {
-	stubIsProcessRunning(t, map[int]bool{})
+	stubIsProcessDead(t, map[int]bool{})
 
 	home := writeInstanceFiles(t, map[string]Instance{
 		"legacy.json": {
