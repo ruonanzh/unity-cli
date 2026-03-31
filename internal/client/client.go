@@ -72,7 +72,7 @@ func ScanInstances() ([]Instance, error) {
 			continue
 		}
 		if inst.PID > 0 && isProcessDead(inst.PID) {
-			os.Remove(fp)
+			_ = os.Remove(fp)
 			continue
 		}
 		instances = append(instances, inst)
