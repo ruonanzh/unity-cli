@@ -122,12 +122,33 @@ namespace UnityCliConnector.Tools
 
                 File.WriteAllText(rspFile, rsp.ToString(), utf8);
 
-                var (exe, args) = FindCsc(rspFile, cscOverride, dotnetOverride);
-                if (exe == null)
+                var rspArg = $"@\"{rspFile}\"";
+                var csc = FindCsc(cscOverride);
+                string exe, args;
+
+                if (csc != null && csc.EndsWith(".dll"))
+                {
+                    var dotnet = FindDotnet(dotnetOverride);
+                    if (dotnet == null)
+                        return new ErrorResponse(
+                            "Cannot find dotnet runtime under: " +
+                            EditorApplication.applicationContentsPath +
+                            "\nSpecify the path manually with --dotnet <path>");
+                    exe = dotnet;
+                    args = $"exec \"{csc}\" {rspArg}";
+                }
+                else if (csc != null)
+                {
+                    exe = csc;
+                    args = rspArg;
+                }
+                else
+                {
                     return new ErrorResponse(
                         "Cannot find csc compiler under: " +
                         EditorApplication.applicationContentsPath +
                         "\nSpecify the path manually with --csc <path-to-csc.dll-or-csc.exe>");
+                }
 
                 var psi = new ProcessStartInfo
                 {
@@ -180,32 +201,22 @@ namespace UnityCliConnector.Tools
             }
         }
 
-        private static (string exe, string args) FindCsc(string rspFile, string cscOverride = null, string dotnetOverride = null)
+        private static string FindCsc(string cscOverride = null)
         {
+            if (!string.IsNullOrEmpty(cscOverride))
+                return cscOverride;
+
             var content = EditorApplication.applicationContentsPath;
-            var rspArg = $"@\"{rspFile}\"";
-
-            var cscDll = !string.IsNullOrEmpty(cscOverride)
-                ? cscOverride
-                : SearchFile(content, "csc.dll");
-
-            if (cscDll != null)
-            {
-                var dotnet = FindDotnet(dotnetOverride);
-                if (dotnet != null)
-                    return (dotnet, $"exec \"{cscDll}\" {rspArg}");
-            }
+            var cscDll = SearchFile(content, "csc.dll");
+            if (cscDll != null) return cscDll;
 
             if (Application.platform == RuntimePlatform.WindowsEditor)
             {
-                var cscExe = !string.IsNullOrEmpty(cscOverride)
-                    ? cscOverride
-                    : SearchFile(content, "csc.exe");
-                if (cscExe != null)
-                    return (cscExe, rspArg);
+                var cscExe = SearchFile(content, "csc.exe");
+                if (cscExe != null) return cscExe;
             }
 
-            return (null, null);
+            return null;
         }
 
         private static string SearchFile(string dir, string name)
